@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111418">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Anki">
+  <title>Anki</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <!-- Decks list -->
+    <section id="viewDecks" class="view">
+      <div class="card">
+        <div class="head">
+          <h2>My decks</h2>
+          <button id="showNewDeck" class="small primary">+ New deck</button>
+        </div>
+        <form id="newDeckForm" class="form" hidden>
+          <label>Deck name <input id="deckName" required placeholder="e.g. Songs"></label>
+          <label>Title field <input id="deckFront" required placeholder="e.g. Song name"></label>
+          <label>Description field <input id="deckBack" required placeholder="e.g. Author"></label>
+          <div class="buttons end">
+            <button type="button" id="cancelNewDeck" class="small">Cancel</button>
+            <button type="submit" class="small primary">Create</button>
+          </div>
+        </form>
+        <p class="hint">Tap a deck to open it.</p>
+        <ul id="decks" class="list"></ul>
+      </div>
+    </section>
+
+    <!-- One deck: its cards -->
+    <section id="viewDeck" class="view" hidden>
+      <div class="card">
+        <div class="head">
+          <button id="backToDecks" class="small">‹ Decks</button>
+          <div class="buttons">
+            <button id="renameDeck" class="small">Edit</button>
+            <button id="deleteDeck" class="small del">Delete</button>
+          </div>
+        </div>
+        <h1 id="deckTitle"></h1>
+        <div id="deckFields" class="sub"></div>
+        <button id="study" class="primary wide">Study</button>
+      </div>
+
+      <div class="card">
+        <h2 id="cardFormTitle">Add a card</h2>
+        <form id="cardForm" class="form">
+          <label><span id="frontLabel"></span> <input id="cardFront" required></label>
+          <label><span id="backLabel"></span> <textarea id="cardBack" rows="2"></textarea></label>
+          <div class="buttons end">
+            <button type="button" id="cancelEdit" class="small" hidden>Cancel</button>
+            <button type="submit" id="saveCard" class="small primary">Add</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="head">
+          <h2>Cards</h2>
+          <span id="cardCount" class="count"></span>
+        </div>
+        <ul id="cards" class="list"></ul>
+      </div>
+    </section>
+
+    <!-- Study session -->
+    <section id="viewStudy" class="view" hidden>
+      <div class="head">
+        <button id="endStudy" class="small">‹ Done</button>
+        <span id="progress" class="count"></span>
+      </div>
+
+      <div id="flash" class="flash" role="button" tabindex="0">
+        <div id="flashFrontLabel" class="label"></div>
+        <div id="flashFront" class="front"></div>
+        <div id="flashBackWrap" hidden>
+          <hr>
+          <div id="flashBackLabel" class="label"></div>
+          <div id="flashBack" class="back"></div>
+        </div>
+        <div id="tapHint" class="hint center">Tap to show</div>
+      </div>
+
+      <div id="answer" class="answer" hidden>
+        <button id="again" class="again">Again</button>
+        <button id="good" class="primary">Got it</button>
+      </div>
+
+      <div id="finished" class="card center" hidden>
+        <h2>Deck finished 🎉</h2>
+        <p class="hint">You went through every card.</p>
+        <div class="buttons center">
+          <button id="restart" class="primary">Study again</button>
+          <button id="finishedBack" >Back to deck</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
