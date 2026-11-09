@@ -34,6 +34,24 @@
         <p class="hint">Tap a deck to open it.</p>
         <ul id="decks" class="list"></ul>
       </div>
+
+      <button id="showSetup" class="link">Publishing setup</button>
+      <div id="setup" class="card" hidden>
+        <h2>Publishing setup</h2>
+        <p class="hint">
+          Only for the site's owner. Paste a GitHub token that can write to the
+          <strong id="repoName"></strong> repo, and a Publish button appears on your decks.
+          The token is saved on this phone only.
+        </p>
+        <form id="setupForm" class="form">
+          <label>GitHub token <input id="token" autocomplete="off" placeholder="github_pat_…"></label>
+          <div id="setupStatus" class="sub"></div>
+          <div class="buttons end">
+            <button type="button" id="removeToken" class="small del">Remove</button>
+            <button type="submit" class="small primary">Save</button>
+          </div>
+        </form>
+      </div>
     </section>
 
     <!-- One deck: its cards -->
@@ -49,9 +67,20 @@
         <h1 id="deckTitle"></h1>
         <div id="deckFields" class="sub"></div>
         <button id="study" class="primary wide">Study</button>
+        <div id="publishBox" class="publish" hidden>
+          <span id="publishStatus" class="sub"></span>
+          <div class="buttons">
+            <button id="unpublish" class="small del">Unpublish</button>
+            <button id="publish" class="small primary">Publish</button>
+          </div>
+        </div>
+        <div id="readOnlyBox" class="publish" hidden>
+          <span class="sub">Published deck. Copy it to make changes.</span>
+          <button id="copyDeck" class="small">Copy to my decks</button>
+        </div>
       </div>
 
-      <div class="card">
+      <div id="cardFormCard" class="card">
         <h2 id="cardFormTitle">Add a card</h2>
         <form id="cardForm" class="form">
           <label><span id="frontLabel"></span> <input id="cardFront" required></label>

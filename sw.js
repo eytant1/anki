@@ -1,6 +1,6 @@
 // Caches the app's own files so it opens offline. Bump VERSION after changing any file.
-const VERSION = 'v1';
-const FILES = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const VERSION = 'v2';
+const FILES = ['./', 'index.html', 'style.css', 'app.js', 'published.json', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then((c) => c.addAll(FILES)).then(() => self.skipWaiting()));

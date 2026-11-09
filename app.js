@@ -20,7 +20,77 @@ const newId = () =>
 // [{ id, name, frontLabel, backLabel, cards: [{ id, front, back }] }]
 let decks = load('decks', []);
 const saveDecks = () => save('decks', decks);
-const findDeck = (id) => decks.find((d) => d.id === id);
+
+// Published decks: same shape, read from published.json in the GitHub repo.
+let published = load('publishedCache', []);
+const findPublished = (id) => published.find((d) => d.id === id);
+const isLocal = (d) => decks.includes(d);
+const findDeck = (id) => decks.find((d) => d.id === id) || findPublished(id);
+// Your own decks, then published decks you don't have a copy of.
+const allDecks = () => [...decks, ...published.filter((p) => !decks.some((d) => d.id === p.id))];
+
+// ---------- Publishing through the GitHub API ----------
+
+// On https://<user>.github.io/<repo>/ the repo is <user>/<repo>; otherwise (e.g. localhost) the default.
+const REPO = location.hostname.endsWith('.github.io')
+  ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1]}`
+  : 'eytant1/anki';
+const FILE_API = `https://api.github.com/repos/${REPO}/contents/published.json`;
+let token = load('githubToken', '');
+
+const toB64 = (str) => {
+  let bin = '';
+  for (const b of new TextEncoder().encode(str)) bin += String.fromCharCode(b);
+  return btoa(bin);
+};
+const fromB64 = (b64) =>
+  new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
+
+async function github(url, options = {}) {
+  const res = await fetch(url, {
+    ...options,
+    cache: 'no-store',
+    headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' },
+  });
+  if (res.status === 404 && !options.method) return null;
+  if (!res.ok) {
+    const msg = (await res.json().catch(() => ({}))).message || res.statusText;
+    throw new Error(`GitHub: ${res.status} ${msg}`);
+  }
+  return res.json();
+}
+
+// Reads published.json, applies `change` to the list, and commits it back.
+async function changePublished(change, message) {
+  const file = await github(`${FILE_API}?ref=main`);
+  const list = file ? JSON.parse(fromB64(file.content)) : [];
+  const next = change(list);
+  await github(FILE_API, {
+    method: 'PUT',
+    body: JSON.stringify({ message, content: toB64(JSON.stringify(next, null, 2) + '\n'), sha: file?.sha, branch: 'main' }),
+  });
+  setPublished(next);
+}
+
+function setPublished(list) {
+  published = Array.isArray(list) ? list : [];
+  save('publishedCache', published);
+}
+
+// The owner reads straight from GitHub (the site lags a minute behind after
+// publishing); everyone else reads the site's copy.
+async function refreshPublished() {
+  try {
+    if (token) {
+      const file = await github(`${FILE_API}?ref=main`);
+      setPublished(file ? JSON.parse(fromB64(file.content)) : []);
+    } else {
+      const res = await fetch('published.json', { cache: 'no-cache' });
+      if (res.ok) setPublished(await res.json());
+    }
+  } catch { return; } // offline: keep the cached copy
+  if ($('#viewStudy').hidden) route();
+}
 
 // ---------- Routing: #/ , #/deck/<id> , #/study/<id> ----------
 
@@ -47,15 +117,22 @@ function showDecks() {
   $('#viewDecks').hidden = false;
   const ul = $('#decks');
   ul.innerHTML = '';
-  if (!decks.length) {
+  const list = allDecks();
+  if (!list.length) {
     ul.innerHTML = '<li class="empty">No decks yet. Tap “+ New deck” to make one.</li>';
     return;
   }
-  for (const d of decks) {
+  for (const d of list) {
     const li = document.createElement('li');
     const name = document.createElement('div');
     name.className = 'name';
     name.textContent = d.name;
+    if (findPublished(d.id)) {
+      const badge = document.createElement('span');
+      badge.className = 'badge';
+      badge.textContent = 'Published';
+      name.append(badge);
+    }
     const small = document.createElement('small');
     small.textContent = `${d.frontLabel} → ${d.backLabel}`;
     name.append(small);
@@ -93,19 +170,106 @@ $('#newDeckForm').onsubmit = (e) => {
   go(`#/deck/${d.id}`);
 };
 
+$('#repoName').textContent = REPO;
+$('#showSetup').onclick = () => {
+  $('#setup').hidden = !$('#setup').hidden;
+  $('#token').value = token;
+  $('#setupStatus').textContent = token ? 'Publishing is set up on this phone.' : '';
+};
+$('#setupForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const old = token;
+  token = $('#token').value.trim();
+  if (!token) return;
+  $('#setupStatus').textContent = 'Checking…';
+  try {
+    await github(`https://api.github.com/repos/${REPO}`);
+    save('githubToken', token);
+    $('#setupStatus').textContent = 'Saved. Open one of your decks to publish it.';
+    refreshPublished();
+  } catch (err) {
+    token = old;
+    $('#setupStatus').textContent = `That token didn't work (${err.message}).`;
+  }
+};
+$('#removeToken').onclick = () => {
+  token = '';
+  save('githubToken', '');
+  $('#token').value = '';
+  $('#setupStatus').textContent = 'Token removed from this phone.';
+};
+
 // ---------- One deck ----------
 
 function showDeck() {
   $('#viewDeck').hidden = false;
+  const mine = isLocal(deck);
   $('#deckTitle').textContent = deck.name;
   $('#deckFields').textContent = `${deck.frontLabel} → ${deck.backLabel}`;
   $('#frontLabel').textContent = deck.frontLabel;
   $('#backLabel').textContent = deck.backLabel;
   $('#study').disabled = !deck.cards.length;
+  $('#renameDeck').hidden = !mine;
+  $('#deleteDeck').hidden = !mine;
+  $('#cardFormCard').hidden = !mine;
+  $('#readOnlyBox').hidden = mine;
+  renderPublish();
   renderCards();
 }
 
+function renderPublish() {
+  const box = $('#publishBox');
+  box.hidden = !token || !isLocal(deck);
+  if (box.hidden) return;
+  const pub = findPublished(deck.id);
+  const same = pub && JSON.stringify(pub) === JSON.stringify(deck);
+  $('#publishStatus').textContent = !pub ? 'Only on this phone' : same ? 'Published ✓' : 'Changes not published yet';
+  $('#publish').hidden = same;
+  $('#publish').textContent = pub ? 'Publish changes' : 'Publish';
+  $('#unpublish').hidden = !pub;
+}
+
+async function publishAction(button, change, message) {
+  const d = deck;
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Saving…';
+  try {
+    await changePublished(change, message);
+  } catch (err) {
+    alert(`Couldn't update GitHub.\n${err.message}`);
+  }
+  button.disabled = false;
+  button.textContent = label;
+  if (deck === d && !$('#viewDeck').hidden) showDeck();
+}
+
+$('#publish').onclick = () => {
+  const copy = JSON.parse(JSON.stringify(deck));
+  const exists = !!findPublished(deck.id);
+  publishAction(
+    $('#publish'),
+    (list) => (list.some((d) => d.id === copy.id) ? list.map((d) => (d.id === copy.id ? copy : d)) : [...list, copy]),
+    `${exists ? 'Update' : 'Publish'} deck: ${copy.name}`
+  );
+};
+
+$('#unpublish').onclick = () => {
+  if (!confirm(`Unpublish “${deck.name}”? It stays on this phone, but others won't get it any more.`)) return;
+  const id = deck.id;
+  publishAction($('#unpublish'), (list) => list.filter((d) => d.id !== id), `Unpublish deck: ${deck.name}`);
+};
+
+// Same id, so the owner can edit a published deck from another phone and publish it back.
+$('#copyDeck').onclick = () => {
+  decks.push(JSON.parse(JSON.stringify(deck)));
+  saveDecks();
+  deck = findDeck(deck.id);
+  showDeck();
+};
+
 function renderCards() {
+  const mine = isLocal(deck);
   const n = deck.cards.length;
   $('#cardCount').textContent = `${n} card${n === 1 ? '' : 's'}`;
   const ul = $('#cards');
@@ -123,6 +287,9 @@ function renderCards() {
     const small = document.createElement('small');
     small.textContent = c.back;
     name.append(small);
+    li.append(name);
+    ul.append(li);
+    if (!mine) continue;
     name.onclick = () => startEdit(c);
     const del = document.createElement('button');
     del.className = 'del';
@@ -135,8 +302,7 @@ function renderCards() {
       saveDecks();
       showDeck();
     };
-    li.append(name, del);
-    ul.append(li);
+    li.append(del);
   }
 }
 
@@ -198,7 +364,8 @@ $('#renameDeck').onclick = () => {
 };
 
 $('#deleteDeck').onclick = () => {
-  if (!confirm(`Delete the deck “${deck.name}” and all its cards?`)) return;
+  const note = findPublished(deck.id) ? ' It stays published; unpublish it first to remove it for everyone.' : '';
+  if (!confirm(`Delete the deck “${deck.name}” and all its cards from this phone?${note}`)) return;
   decks = decks.filter((d) => d.id !== deck.id);
   saveDecks();
   go('#/');
@@ -282,5 +449,6 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('hashchange', () => { stopEdit(); route(); window.scrollTo(0, 0); });
 route();
+refreshPublished();
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');

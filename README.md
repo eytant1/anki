@@ -6,8 +6,24 @@ A small web app (PWA) for studying flashcards on your phone, Anki style.
 - Add cards to a deck: each card has a title and a description. Tap a card to edit it, ✕ to delete it.
 - **Study**: the cards come in random order. You see the title; tap to show the description.
   Then tap **Again** to see that card again a few cards later, or **Got it** to drop it from this round.
-- Decks are saved on your device (localStorage) and are never uploaded anywhere.
+- Decks are saved on your device (localStorage). Only decks you publish are uploaded.
 - Works offline once loaded.
+
+## Publishing decks
+
+A published deck shows up for everyone who opens the site. Visitors can study it but not change it; **Copy to my decks** gives them their own editable copy.
+Published decks live in `published.json` in this repo, and the app commits to it through the GitHub API.
+
+One-time setup on your phone:
+
+1. Create a token at https://github.com/settings/personal-access-tokens/new
+   - **Repository access:** *Only select repositories* → `anki`
+   - **Permissions → Repository permissions → Contents:** *Read and write*
+2. In the app, tap **Publishing setup** (under the deck list), paste the token, and tap **Save**.
+3. Open one of your decks and tap **Publish**. After you change it, tap **Publish changes**. **Unpublish** removes it for everyone.
+
+Other people see the change after GitHub rebuilds the site, about a minute later.
+The token is stored only in that phone's browser; anyone with the token can change the repo, so don't share it.
 
 ## Run locally
 
